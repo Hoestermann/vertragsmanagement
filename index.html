@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vertragsmanagement – Hoestermann Agentur</title>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --blue: #1a3c6e; --blue-light: #2a5298; --gold: #c8a84b;
+    --green: #2e7d32; --orange: #e65100; --red: #c62828;
+    --gray: #f5f5f5; --border: #ddd; --text: #222;
+    --badge-film: #1565c0; --badge-theater: #6a1b9a; --badge-sonstiges: #2e7d32;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: var(--text); font-size: 14px; }
+  header { background: var(--blue); color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .header-right { display: flex; align-items: center; gap: 12px; }
+  .user-badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .umsatz-toggle { font-size: 12px; background: rgba(200,168,75,0.25); border: 1px solid var(--gold); border-radius: 4px; padding: 3px 10px; cursor: pointer; color: var(--gold); }
+  .umsatz-toggle.active { background: var(--gold); color: var(--blue); font-weight: 600; }
+  .sync-btn { font-size: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; padding: 3px 10px; cursor: pointer; color: white; }
+  .sync-btn:hover { background: rgba(255,255,255,0.2); }
+  nav { background: white; border-bottom: 2px solid var(--border); padding: 0 24px; display: flex; }
+  nav button { background: none; border: none; border-bottom: 3px solid transparent; padding: 12px 20px; font-size: 13px; cursor: pointer; color: #555; font-weight: 500; transition: all 0.15s; }
+  nav button.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 700; }
+  nav button:hover { color: var(--blue); background: #f0f4ff; }
+  .toolbar { background: white; padding: 10px 24px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .toolbar input[type=text], .toolbar select { border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 13px; outline: none; }
+  .toolbar input[type=text]:focus, .toolbar select:focus { border-color: var(--blue-light); }
+  .toolbar input[type=text] { width: 240px; }
+  .btn { border: none; border-radius: 4px; padding: 7px 16px; font-size: 13px; cursor: pointer; font-weight: 600; transition: 0.15s; }
+  .btn-primary { background: var(--blue); color: white; }
+  .btn-primary:hover { background: var(--blue-light); }
+  .btn-secondary { background: var(--gray); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #e8e8e8; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  main { padding: 20px 24px; }
+  .table-wrap { background: white; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  thead th { background: var(--blue); color: white; padding: 10px 12px; text-align: left; font-weight: 600; white-space: nowrap; position: sticky; top: 0; z-index: 2; }
+  thead th.umsatz-col { background: #b8960a; }
+  tbody tr { border-bottom: 1px solid #eee; transition: background 0.1s; }
+  tbody tr:hover { background: #f7f9ff; }
+  tbody td { padding: 9px 12px; vertical-align: middle; }
+  tbody td.klient { font-weight: 600; }
+  .wf-dot { display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: #ddd; }
+  .wf-dot.done { background: var(--green); }
+  .workflow { display: flex; gap: 3px; align-items: center; }
+  .type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; color: white; }
+  .type-film { background: var(--badge-film); }
+  .type-theater { background: var(--badge-theater); }
+  .type-sonstiges { background: var(--badge-sonstiges); }
+  .agent-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; background: #e3e8f0; color: #333; }
+  .umsatz-val { font-weight: 700; color: var(--green); }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; overflow-y: auto; }
+  .modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; padding: 30px 16px; }
+  .modal { background: white; border-radius: 10px; width: 100%; max-width: 860px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); overflow: hidden; }
+  .modal-header { background: var(--blue); color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h2 { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: white; font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: var(--gray); }
+  .form-section { margin-bottom: 20px; }
+  .form-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #888; border-bottom: 1px solid #eee; padding-bottom: 6px; margin-bottom: 12px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.span2 { grid-column: span 2; }
+  .form-group label { font-size: 12px; font-weight: 600; color: #555; }
+  .form-group input, .form-group select, .form-group textarea { border: 1px solid var(--border); border-radius: 4px; padding: 7px 10px; font-size: 13px; font-family: inherit; outline: none; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--blue-light); }
+  .form-group textarea { min-height: 60px; resize: vertical; }
+  .type-tabs { display: flex; gap: 0; margin-bottom: 20px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+  .type-tab { flex: 1; padding: 10px; text-align: center; cursor: pointer; font-weight: 700; font-size: 13px; background: white; border: none; transition: 0.15s; }
+  .type-tab.active.film { background: var(--badge-film); color: white; }
+  .type-tab.active.theater { background: var(--badge-theater); color: white; }
+  .type-tab.active.sonstiges { background: var(--badge-sonstiges); color: white; }
+  .type-tab:not(.active) { color: #777; }
+  .umsatz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .umsatz-card { background: white; border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .umsatz-card .name { font-weight: 700; font-size: 15px; color: var(--blue); }
+  .umsatz-card .amount { font-size: 22px; font-weight: 800; color: var(--green); margin-top: 4px; }
+  .umsatz-card .details { font-size: 12px; color: #888; margin-top: 4px; }
+  .umsatz-total-bar { background: var(--blue); color: white; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .umsatz-total-bar .label { font-size: 13px; opacity: 0.85; }
+  .umsatz-total-bar .amount { font-size: 28px; font-weight: 800; }
+  .detail-row { display: flex; border-bottom: 1px solid #f0f0f0; padding: 8px 0; }
+  .detail-label { width: 200px; font-size: 12px; font-weight: 600; color: #777; flex-shrink: 0; }
+  .detail-value { font-size: 13px; color: var(--text); }
+  .memo-box { background: #fffde7; border-left: 3px solid var(--gold); padding: 10px 14px; border-radius: 0 6px 6px 0; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  .empty-state { text-align: center; padding: 60px 20px; color: #aaa; }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  /* LOGIN OVERLAY */
+  #loginOverlay { position: fixed; inset: 0; background: var(--blue); z-index: 200; display: flex; align-items: center; justify-content: center; }
+  .login-box { background: white; border-radius: 12px; padding: 48px 40px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
+  .login-box h2 { color: var(--blue); font-size: 22px; margin-bottom: 8px; }
+  .login-box p { color: #666; font-size: 14px; margin-bottom: 28px; }
+  .login-box .logo { font-size: 48px; margin-bottom: 16px; }
+  .btn-ms { background: #0078d4; color: white; border: none; border-radius: 4px; padding: 12px 24px; font-size: 15px; cursor: pointer; font-weight: 600; width: 100%; }
+  .btn-ms:hover { background: #106ebe; }
+  #loginError { color: var(--red); font-size: 13px; margin-top: 12px; display: none; }
+  /* LOADING OVERLAY */
+  #loadingOverlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); z-index: 150; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+  .spinner { width: 40px; height: 40px; border: 4px solid #e0e0e0; border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingText { font-size: 14px; color: #555; }
+  /* CONFIG BANNER */
+  #configBanner { background: #ff9800; color: white; text-align: center; padding: 8px; font-size: 13px; font-weight: 600; display: none; }
+  @media print { header, nav, .toolbar, .modal-overlay { display: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="logo">📋</div>
+    <h2>Vertragsmanagement</h2>
+    <p>Hoestermann Agentur für Schauspieler</p>
+    <button class="btn-ms" onclick="doLogin()">🔐 Mit Microsoft anmelden</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay" style="display:none">
+  <div class="spinner"></div>
+  <div id="loadingText">Daten werden geladen…</div>
+</div>
+
+<!-- CONFIG BANNER (shown if placeholders still in place) -->
+<div id="configBanner">⚠️ Azure Client-ID noch nicht eingetragen – bitte index.html anpassen</div>
+
+<header>
+  <h1>📋 Vertragsmanagement</h1>
+  <div class="header-right">
+    <button class="sync-btn" onclick="loadFromSP()" title="Daten neu laden">🔄 Aktualisieren</button>
+    <div class="user-badge" onclick="cycleUser()">👤 <span id="currentUser">ER – Esther</span></div>
+    <button class="umsatz-toggle" id="umsatzToggle" onclick="toggleUmsatz()">€ Umsatz anzeigen</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('liste')">Vertragsliste</button>
+  <button onclick="showTab('umsatz')" id="navUmsatz">Umsatzübersicht</button>
+  <button onclick="showTab('export')">Export</button>
+</nav>
+
+<div class="toolbar">
+  <input type="text" id="searchInput" placeholder="🔍 Suche Klient, Produktion, Haus…" oninput="renderList()">
+  <select id="filterJahr" onchange="renderList()">
+    <option value="2026">2026</option>
+    <option value="2027">2027</option>
+    <option value="2025">2025</option>
+    <option value="">Alle Jahre</option>
+  </select>
+  <select id="filterAgent" onchange="renderList()">
+    <option value="">Alle Agenten</option>
+    <option value="ER">ER – Esther</option>
+    <option value="HB">HB – Beate</option>
+    <option value="JH">JH – Johann</option>
+  </select>
+  <select id="filterTyp" onchange="renderList()">
+    <option value="">Alle Typen</option>
+    <option value="Film">Film</option>
+    <option value="Theater">Theater</option>
+    <option value="Sonstiges">Sonstiges</option>
+  </select>
+  <select id="filterStatus" onchange="renderList()">
+    <option value="">Alle Status</option>
+    <option value="offen">Offen / in Bearbeitung</option>
+    <option value="abgeschlossen">Abgeschlossen</option>
+  </select>
+  <button class="btn btn-primary" onclick="openModal()">+ Neuer Vertrag</button>
+</div>
+
+<main>
+  <div id="tabListe">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Klient</th>
+            <th>Produktion / Haus</th>
+            <th>Typ</th>
+            <th>Agent / Bear.</th>
+            <th>Workflow</th>
+            <th>1. DT</th>
+            <th>Letzter DT</th>
+            <th class="umsatz-col" style="display:none;background:#b8960a">Provision (€)</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="contractTableBody">
+          <tr><td colspan="9"><div class="empty-state"><div class="icon">⏳</div><p>Daten werden geladen…</p></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div id="tabUmsatz" style="display:none">
+    <div class="umsatz-total-bar">
+      <div><div class="label">Gesamtprovision <span id="umsatzJahrLabel">2026</span></div><div class="amount" id="umsatzTotal">€ 0,00</div></div>
+      <div style="font-size:13px;opacity:0.8" id="umsatzMeta"></div>
+    </div>
+    <div class="umsatz-grid" id="umsatzGrid"></div>
+  </div>
+  <div id="tabExport" style="display:none">
+    <div style="background:white;border-radius:8px;padding:24px;max-width:500px;box-shadow:0 1px 4px rgba(0,0,0,0.08)">
+      <h3 style="margin-bottom:16px;color:var(--blue)">Daten exportieren</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-primary" onclick="exportCSV('2026')">📥 CSV Export 2026</button>
+        <button class="btn btn-primary" onclick="exportCSV('2027')">📥 CSV Export 2027</button>
+        <button class="btn btn-primary" onclick="exportCSV('2025')">📥 CSV Export 2025</button>
+        <button class="btn btn-primary" onclick="exportCSV('')">📥 CSV Export Alle Jahre</button>
+        <hr style="margin:8px 0;border:none;border-top:1px solid #eee">
+        <button class="btn btn-secondary" onclick="exportJSON()">💾 JSON Backup herunterladen</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- EDIT / NEW MODAL -->
+<div class="modal-overlay" id="contractModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Neuer Vertrag</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="type-tabs" id="typTabs">
+        <button class="type-tab active film" onclick="setTyp('Film')">🎬 Film / TV</button>
+        <button class="type-tab theater" onclick="setTyp('Theater')">🎭 Theater / Bühne</button>
+        <button class="type-tab sonstiges" onclick="setTyp('Sonstiges')">🎙 Sonstiges</button>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Basisdaten</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Klient *</label><input type="text" id="f_klient" placeholder="Nachname, Vorname"></div>
+          <div class="form-group"><label>Produktion *</label><input type="text" id="f_produktion" placeholder="z.B. Tatort Frankfurt"></div>
+          <div class="form-group"><label>Produktionsfirma / Haus</label><input type="text" id="f_haus" placeholder="z.B. Sommerhaus Film"></div>
+          <div class="form-group"><label>Jahr</label><select id="f_jahr"><option>2026</option><option>2027</option><option>2025</option></select></div>
+          <div class="form-group"><label>Agentin/Agent</label><select id="f_agentin"><option value="ER">ER – Esther</option><option value="HB">HB – Beate</option><option value="JH">JH – Johann</option></select></div>
+          <div class="form-group"><label>Bearbeitung Vertrag</label><select id="f_bearbeitung"><option value="">–</option><option value="ER">ER</option><option value="HB">HB – Beate</option><option value="JH">JH</option><option value="extern">Extern</option><option value="/">/ (kein Vertrag nötig)</option></select></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title">Bedingungen & Memos</div>
+        <div class="form-grid">
+          <div class="form-group span2"><label>Bedingungen / Memos</label><textarea id="f_bedingungen" placeholder="Verhandlungsstand, besondere Konditionen, Hinweise…"></textarea></div>
+          <div class="form-group span2"><label>Sondervereinbarungen</label><textarea id="f_sonder" placeholder="Optionen, Achtungshinweise, Klauseln…"></textarea></div>
+        </div>
+      </div>
+      <!-- FILM -->
+      <div class="form-section" id="sectionFilm">
+        <div class="form-section-title">🎬 Film / TV – Konditionen</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Tagesgage (€)</label><input type="number" id="f_tagesgage" placeholder="z.B. 3500"></div>
+          <div class="form-group"><label>Garantierte Drehtage</label><input type="number" id="f_garant_dt" placeholder="z.B. 8"></div>
+          <div class="form-group"><label>Zusatz-DT</label><input type="number" id="f_zusatz_dt" placeholder="0"></div>
+          <div class="form-group"><label>Pauschale (€)</label><input type="number" id="f_pauschale" placeholder="0"></div>
+          <div class="form-group"><label>Vorbereitungstage</label><input type="number" id="f_vorbereitungstage" placeholder="0"></div>
+          <div class="form-group"><label>Synchrontage</label><input type="number" id="f_synchrontage" placeholder="0"></div>
+          <div class="form-group"><label>Reisen</label><select id="f_reisen"><option value="">–</option><option>Bahn 1. Klasse</option><option>Bahn 2. Klasse</option><option>Flug</option><option>Auto / km</option><option>nach Absprache</option></select></div>
+          <div class="form-group"><label>Hotel</label><input type="text" id="f_hotel" placeholder="z.B. 4*"></div>
+          <div class="form-group"><label>Spesen</label><select id="f_spesen"><option value="">–</option><option>Ja</option><option>Nein</option><option>Nach Absprache</option></select></div>
+          <div class="form-group"><label>Nennung / Credit</label><input type="text" id="f_nennung" placeholder="z.B. Hauptrolle"></div>
+          <div class="form-group"><label>Presse</label><select id="f_presse"><option value="">–</option><option>Nach Absprache</option><option>Ja</option><option>Nein</option></select></div>
+          <div class="form-group"><label>Fotoabnahme</label><select id="f_fotoabnahme"><option value="">–</option><option>Ja</option><option>Nein</option></select></div>
+          <div class="form-group"><label>Mit Kollegin</label><input type="text" id="f_kollegin" placeholder="Name"></div>
+          <div class="form-group"><label>Bescheinigung</label><select id="f_bescheinigung"><option value="">–</option><option>Kommt</option><option>Da</option><option>Nicht nötig</option></select></div>
+          <div class="form-group"><label>Abrechnungsinfo</label><input type="text" id="f_abrechnungsinfo"></div>
+          <div class="form-group"><label>Provision % (Film)</label><input type="number" id="f_provision_pct_film" value="10" style="width:80px"></div>
+        </div>
+      </div>
+      <!-- THEATER -->
+      <div class="form-section" id="sectionTheater" style="display:none">
+        <div class="form-section-title">🎭 Theater – Konditionen</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Monatsgage (€)</label><input type="number" id="f_monatsgage" placeholder="z.B. 4300"></div>
+          <div class="form-group"><label>Vorstellungsgage (€)</label><input type="number" id="f_vorstellungsgage" placeholder="0"></div>
+          <div class="form-group"><label>Garantierte Vorstellungen</label><input type="number" id="f_garant_vs" placeholder="0"></div>
+          <div class="form-group"><label>Vertragszeitraum</label><input type="text" id="f_zeitraum" placeholder="z.B. 27.08.26 – 31.07.28"></div>
+          <div class="form-group"><label>Steuerklasse</label><input type="text" id="f_steuerklasse"></div>
+          <div class="form-group"><label>Stückebegrenzung</label><select id="f_stuecke"><option value="">–</option><option>Ja</option><option>Nein</option><option>Verhandelt</option></select></div>
+          <div class="form-group"><label>Urban Sportsclub</label><select id="f_sports"><option value="">–</option><option>Ja</option><option>Nein</option></select></div>
+          <div class="form-group"><label>Provision % (Theater)</label><input type="number" id="f_provision_pct_theater" value="6" style="width:80px"></div>
+        </div>
+      </div>
+      <!-- SONSTIGES -->
+      <div class="form-section" id="sectionSonstiges" style="display:none">
+        <div class="form-section-title">🎙 Sonstiges – Konditionen</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Art des Projekts</label><select id="f_sonstiges_art"><option value="">–</option><option>Hörbuch</option><option>Synchron</option><option>Werbung</option><option>Kinotour / Event</option><option>Lesung</option><option>Moderation</option><option>Sonstiges</option></select></div>
+          <div class="form-group"><label>Honorar (€)</label><input type="number" id="f_sonstiges_honorar" placeholder="z.B. 900"></div>
+          <div class="form-group"><label>Tage / Einheiten</label><input type="number" id="f_sonstiges_tage" placeholder="z.B. 4"></div>
+          <div class="form-group"><label>Provision % (Sonstiges)</label><input type="number" id="f_provision_pct_sonstiges" value="10" style="width:80px"></div>
+          <div class="form-group"><label>Reisen</label><input type="text" id="f_sonstiges_reisen"></div>
+          <div class="form-group"><label>Besonderheiten</label><input type="text" id="f_sonstiges_besonders"></div>
+        </div>
+      </div>
+      <!-- PROVISION -->
+      <div class="form-section">
+        <div class="form-section-title">Provision / Umsatz</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Provision (€)</label><input type="number" id="f_provision" placeholder="z.B. 3850" step="0.01"></div>
+          <div class="form-group"><label>Rechnung gestellt</label><select id="f_rechnung"><option value="">–</option><option>Nein</option><option>Ja</option><option>Nicht nötig</option></select></div>
+        </div>
+        <div style="margin-top:8px"><button class="btn btn-secondary btn-sm" onclick="berechneProvision()">⚡ Provision berechnen</button></div>
+      </div>
+      <!-- WORKFLOW -->
+      <div class="form-section">
+        <div class="form-section-title">Workflow – Vertragsstatus</div>
+        <div style="font-size:12px;color:#888;margin-bottom:10px">✓ = erledigt / Datum eintragen wenn bekannt</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-group"><label>Erster Drehtag / Vorstellung</label><input type="text" id="f_erster_dt" placeholder="z.B. 15.03.26"></div>
+          <div class="form-group"><label>Letzter Drehtag / Vorstellung</label><input type="text" id="f_letzter_dt" placeholder="z.B. 15.07.26"></div>
+          <div class="form-group"><label>Verhandelt</label><input type="text" id="f_verhandelt" placeholder="Datum oder X"></div>
+          <div class="form-group"><label>Entwurf erhalten</label><input type="text" id="f_entwurf_da" placeholder="Datum oder X"></div>
+          <div class="form-group"><label>Änderungen raus</label><input type="text" id="f_aenderungen_raus" placeholder="Datum oder X"></div>
+          <div class="form-group"><label>Original erhalten</label><input type="text" id="f_original_da" placeholder="Datum oder X"></div>
+          <div class="form-group"><label>Original raus</label><input type="text" id="f_original_raus" placeholder="Datum od. Digital"></div>
+          <div class="form-group"><label>Original zurück</label><input type="text" id="f_original_zurueck" placeholder="Datum oder X"></div>
+          <div class="form-group"><label>Honorarrechnung</label><input type="text" id="f_honorarrechnung" placeholder="– oder Datum"></div>
+          <div class="form-group"><label>Personalstammbogen</label><input type="text" id="f_personal" placeholder="Datum weitergeleitet"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveContract()">💾 Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header" id="detailModalHeader">
+      <h2 id="detailTitle">Vertragsdetails</h2>
+      <button class="modal-close" onclick="closeDetail()">×</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeDetail()">Schließen</button>
+      <button class="btn btn-primary" id="detailEditBtn">✏️ Bearbeiten</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  KONFIGURATION – nach Azure-Registrierung ausfüllen
+// ============================================================
+const CLIENT_ID  = 'c5479fcb-f3e5-4568-9838-5f0df1d32a07';
+const TENANT_ID  = 'fd8f9b06-1b32-4fde-836e-d69e3a7d237b';
+const SP_SITE    = 'https://hoestermann.sharepoint.com/sites/HoestermannAgenturfrSchauspielerInhaberinBeateHeidelbach';
+const SP_LIST    = 'Vertragsmanagement';
+const SP_SCOPE   = [`${SP_SITE}/AllSites.Write`];
+const REDIRECT   = 'https://hoestermann.github.io/vertragsmanagement/';
+
+// ============================================================
+//  MSAL
+// ============================================================
+const msalConfig = {
+  auth: { clientId: CLIENT_ID, authority: `https://login.microsoftonline.com/${TENANT_ID}`, redirectUri: REDIRECT },
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
+};
+
+let msalInstance = null;
+
+async function initMsal() {
+  if (CLIENT_ID === 'NICHT_GESETZT') {
+    document.getElementById('configBanner').style.display = 'block';
+    document.getElementById('loginOverlay').style.display = 'none';
+    // Demo-Modus: leere Liste zeigen
+    renderList();
+    return;
+  }
+  msalInstance = new msal.PublicClientApplication(msalConfig);
+  await msalInstance.initialize();
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    await loadFromSP();
+  } else {
+    document.getElementById('loginOverlay').style.display = 'flex';
+  }
+}
+
+async function doLogin() {
+  document.getElementById('loginError').style.display = 'none';
+  try {
+    await msalInstance.loginPopup({ scopes: SP_SCOPE });
+    document.getElementById('loginOverlay').style.display = 'none';
+    await loadFromSP();
+  } catch(e) {
+    document.getElementById('loginError').textContent = 'Anmeldung fehlgeschlagen: ' + e.message;
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+async function getToken() {
+  if (!msalInstance) throw new Error('MSAL not initialized');
+  const accounts = msalInstance.getAllAccounts();
+  if (!accounts.length) throw new Error('Nicht angemeldet');
+  try {
+    const resp = await msalInstance.acquireTokenSilent({ scopes: SP_SCOPE, account: accounts[0] });
+    return resp.accessToken;
+  } catch(e) {
+    const resp = await msalInstance.acquireTokenPopup({ scopes: SP_SCOPE, account: accounts[0] });
+    return resp.accessToken;
+  }
+}
+
+// ============================================================
+//  SHAREPOINT REST API
+// ============================================================
+async function spFetch(url, opts = {}) {
+  const token = await getToken();
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json;odata=verbose',
+    'Content-Type': 'application/json;odata=verbose',
+    ...(opts.headers || {})
+  };
+  return fetch(url, { ...opts, headers });
+}
+
+async function loadFromSP() {
+  showLoading('Verträge werden geladen…');
+  try {
+    const url = `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items?$top=500&$orderby=Klient asc`;
+    const resp = await spFetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    contracts = data.d.results.map(spToContract);
+    renderList();
+  } catch(e) {
+    alert('Fehler beim Laden: ' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function spToContract(item) {
+  // Extra fields aus dem Bedingungen-Feld extrahieren
+  let bedingungen = item.Bedingungen || '';
+  let extra = {};
+  const sep = bedingungen.indexOf('|||EXTRA:');
+  if (sep >= 0) {
+    try { extra = JSON.parse(bedingungen.substring(sep + 9)); } catch(e) {}
+    bedingungen = bedingungen.substring(0, sep);
+  }
+  return {
+    id: item.ID,
+    typ: item.Typ || 'Film',
+    klient: item.Klient || '',
+    produktion: item.Produktion || '',
+    haus: item.Haus || '',
+    jahr: String(item.Jahr || '2026'),
+    agentin: item.Agentin || 'ER',
+    bearbeitung: item.Bearbeitung || '',
+    erster_dt: item.Erster_DT || '',
+    letzter_dt: item.Letzter_DT || '',
+    verhandelt: item.Verhandelt || '',
+    entwurf_da: item.Entwurf_da || '',
+    aenderungen_raus: item.Aenderungen_raus || '',
+    original_da: item.Original_da || '',
+    original_raus: item.Original_raus || '',
+    original_zurueck: item.Original_zurueck || '',
+    honorarrechnung: item.Honorarrechnung || '',
+    provision: item.Provision || 0,
+    rechnung: item.Rechnung || '',
+    bedingungen: bedingungen,
+    sonder: item.Sonder || '',
+    // Extra fields
+    personal: extra.personal || '',
+    tagesgage: extra.tagesgage || '', garant_dt: extra.garant_dt || '', zusatz_dt: extra.zusatz_dt || '',
+    pauschale: extra.pauschale || '', vorbereitungstage: extra.vorbereitungstage || '', synchrontage: extra.synchrontage || '',
+    reisen: extra.reisen || '', hotel: extra.hotel || '', spesen: extra.spesen || '',
+    nennung: extra.nennung || '', presse: extra.presse || '', fotoabnahme: extra.fotoabnahme || '',
+    kollegin: extra.kollegin || '', bescheinigung: extra.bescheinigung || '', abrechnungsinfo: extra.abrechnungsinfo || '',
+    provision_pct_film: extra.provision_pct_film || 10,
+    monatsgage: extra.monatsgage || '', vorstellungsgage: extra.vorstellungsgage || '', garant_vs: extra.garant_vs || '',
+    zeitraum: extra.zeitraum || '', steuerklasse: extra.steuerklasse || '', stuecke: extra.stuecke || '', sports: extra.sports || '',
+    provision_pct_theater: extra.provision_pct_theater || 6,
+    sonstiges_art: extra.sonstiges_art || '', sonstiges_honorar: extra.sonstiges_honorar || '',
+    sonstiges_tage: extra.sonstiges_tage || '', provision_pct_sonstiges: extra.provision_pct_sonstiges || 10,
+    sonstiges_reisen: extra.sonstiges_reisen || '', sonstiges_besonders: extra.sonstiges_besonders || '',
+  };
+}
+
+function buildSPPayload(c, listItemEntityType) {
+  const extra = {
+    personal: c.personal,
+    tagesgage: c.tagesgage, garant_dt: c.garant_dt, zusatz_dt: c.zusatz_dt,
+    pauschale: c.pauschale, vorbereitungstage: c.vorbereitungstage, synchrontage: c.synchrontage,
+    reisen: c.reisen, hotel: c.hotel, spesen: c.spesen,
+    nennung: c.nennung, presse: c.presse, fotoabnahme: c.fotoabnahme,
+    kollegin: c.kollegin, bescheinigung: c.bescheinigung, abrechnungsinfo: c.abrechnungsinfo,
+    provision_pct_film: c.provision_pct_film,
+    monatsgage: c.monatsgage, vorstellungsgage: c.vorstellungsgage, garant_vs: c.garant_vs,
+    zeitraum: c.zeitraum, steuerklasse: c.steuerklasse, stuecke: c.stuecke, sports: c.sports,
+    provision_pct_theater: c.provision_pct_theater,
+    sonstiges_art: c.sonstiges_art, sonstiges_honorar: c.sonstiges_honorar,
+    sonstiges_tage: c.sonstiges_tage, provision_pct_sonstiges: c.provision_pct_sonstiges,
+    sonstiges_reisen: c.sonstiges_reisen, sonstiges_besonders: c.sonstiges_besonders,
+  };
+  const hasExtra = Object.values(extra).some(v => v !== '' && v !== 0 && v !== 10 && v !== 6);
+  const bedingungen = c.bedingungen + (hasExtra ? '|||EXTRA:' + JSON.stringify(extra) : '');
+  return {
+    __metadata: { type: listItemEntityType },
+    Klient: c.klient, Produktion: c.produktion, Haus: c.haus,
+    Typ: c.typ, Jahr: parseInt(c.jahr) || 2026,
+    Agentin: c.agentin, Bearbeitung: c.bearbeitung,
+    Erster_DT: c.erster_dt || null, Letzter_DT: c.letzter_dt || null,
+    Verhandelt: c.verhandelt || null, Entwurf_da: c.entwurf_da || null,
+    Aenderungen_raus: c.aenderungen_raus || null, Original_da: c.original_da || null,
+    Original_raus: c.original_raus || null, Original_zurueck: c.original_zurueck || null,
+    Honorarrechnung: c.honorarrechnung || null,
+    Provision: parseFloat(c.provision) || null,
+    Rechnung: c.rechnung || null, Bedingungen: bedingungen, Sonder: c.sonder || null,
+  };
+}
+
+async function getListItemEntityType() {
+  const resp = await spFetch(`${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')?$select=ListItemEntityTypeFullName`);
+  const data = await resp.json();
+  return data.d.ListItemEntityTypeFullName;
+}
+
+let _entityType = null;
+async function getEntityType() {
+  if (!_entityType) _entityType = await getListItemEntityType();
+  return _entityType;
+}
+
+async function createSPItem(c) {
+  const entityType = await getEntityType();
+  const url = `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items`;
+  const resp = await spFetch(url, { method: 'POST', body: JSON.stringify(buildSPPayload(c, entityType)) });
+  if (!resp.ok) throw new Error(`Create failed: ${resp.status}`);
+  const data = await resp.json();
+  return data.d.ID;
+}
+
+async function updateSPItem(c) {
+  const entityType = await getEntityType();
+  const url = `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items(${c.id})`;
+  const resp = await spFetch(url, {
+    method: 'POST',
+    headers: { 'X-HTTP-Method': 'MERGE', 'If-Match': '*' },
+    body: JSON.stringify(buildSPPayload(c, entityType))
+  });
+  if (!resp.ok && resp.status !== 204) throw new Error(`Update failed: ${resp.status}`);
+}
+
+async function deleteSPItem(id) {
+  const url = `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items(${id})`;
+  const resp = await spFetch(url, {
+    method: 'POST',
+    headers: { 'X-HTTP-Method': 'DELETE', 'If-Match': '*' }
+  });
+  if (!resp.ok && resp.status !== 204) throw new Error(`Delete failed: ${resp.status}`);
+}
+
+// ============================================================
+//  STATE
+// ============================================================
+let contracts = [];
+let editingId = null;
+let currentTyp = 'Film';
+let showUmsatz = false;
+let currentUser = 'ER';
+
+const WORKFLOW_FELDER = [
+  { key:'verhandelt', label:'Verhandelt' },
+  { key:'entwurf_da', label:'Entwurf' },
+  { key:'aenderungen_raus', label:'Änd. raus' },
+  { key:'original_da', label:'Orig. da' },
+  { key:'original_raus', label:'Orig. raus' },
+  { key:'original_zurueck', label:'Orig. zurück' },
+];
+
+function wfDone(val) { return val && val !== '' && val !== '–' && val !== '-'; }
+
+// ============================================================
+//  RENDER
+// ============================================================
+function renderList() {
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const fJahr = document.getElementById('filterJahr').value;
+  const fAgent = document.getElementById('filterAgent').value;
+  const fTyp = document.getElementById('filterTyp').value;
+  const fStatus = document.getElementById('filterStatus').value;
+
+  let filtered = contracts.filter(c => {
+    if (fJahr && c.jahr !== fJahr) return false;
+    if (fAgent && c.agentin !== fAgent) return false;
+    if (fTyp && c.typ !== fTyp) return false;
+    if (fStatus === 'abgeschlossen' && !wfDone(c.original_zurueck)) return false;
+    if (fStatus === 'offen' && wfDone(c.original_zurueck)) return false;
+    if (search) {
+      const hay = [c.klient, c.produktion, c.haus, c.agentin, c.bearbeitung].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  filtered.sort((a,b) => a.klient.localeCompare(b.klient, 'de') || (b.jahr||'').localeCompare(a.jahr||''));
+
+  const tbody = document.getElementById('contractTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">🔍</div><p>Keine Verträge gefunden.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(c => {
+    const typIcon = c.typ === 'Film' ? '🎬' : c.typ === 'Theater' ? '🎭' : '🎙';
+    const typBadge = `<span class="type-badge type-${c.typ.toLowerCase()}">${typIcon} ${c.typ}</span>`;
+    const wfDots = WORKFLOW_FELDER.map(f => `<div class="wf-dot ${wfDone(c[f.key])?'done':''}" title="${f.label}: ${c[f.key]||'–'}"></div>`).join('');
+    const wfComplete = WORKFLOW_FELDER.every(f => wfDone(c[f.key]));
+    const provText = (c.provision && Number(c.provision) > 0)
+      ? `€ ${Number(c.provision).toLocaleString('de-DE', {minimumFractionDigits:2})}`
+      : '–';
+    return `<tr>
+      <td class="klient">${escHtml(c.klient)}<br><span style="font-size:11px;color:#888">${c.jahr}</span></td>
+      <td>${escHtml(c.produktion)}${c.haus ? `<span style="color:#888;font-size:11px"> | ${escHtml(c.haus)}</span>` : ''}</td>
+      <td>${typBadge}</td>
+      <td><span class="agent-badge">${c.agentin}</span>${c.bearbeitung ? `<span style="font-size:11px;color:#888"> / ${c.bearbeitung}</span>` : ''}</td>
+      <td><div class="workflow">${wfDots}</div>${wfComplete ? '<span style="color:var(--green);font-size:11px;font-weight:700">✓ Abgeschl.</span>' : ''}</td>
+      <td style="white-space:nowrap;font-size:12px">${c.erster_dt||'–'}</td>
+      <td style="white-space:nowrap;font-size:12px">${c.letzter_dt||'–'}</td>
+      <td class="umsatz-col" style="display:${showUmsatz?'':'none'};font-weight:700;color:var(--green)">${provText}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm btn-secondary" onclick="showDetail(${c.id})">Details</button>
+        <button class="btn btn-sm btn-secondary" onclick="editContract(${c.id})">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteContract(${c.id})">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderUmsatz() {
+  const fJahr = document.getElementById('filterJahr').value;
+  const filtered = contracts.filter(c => !fJahr || c.jahr === fJahr);
+  document.getElementById('umsatzJahrLabel').textContent = fJahr || 'Alle Jahre';
+  const byKlient = {};
+  let total = 0;
+  filtered.forEach(c => {
+    const p = Number(c.provision) || 0;
+    if (!byKlient[c.klient]) byKlient[c.klient] = { total:0, count:0, agentin:c.agentin };
+    byKlient[c.klient].total += p;
+    byKlient[c.klient].count++;
+    total += p;
+  });
+  document.getElementById('umsatzTotal').textContent = '€ ' + total.toLocaleString('de-DE', {minimumFractionDigits:2});
+  document.getElementById('umsatzMeta').textContent = `${filtered.length} Verträge | ${Object.keys(byKlient).length} Klienten`;
+  const sorted = Object.entries(byKlient).sort((a,b) => b[1].total - a[1].total);
+  document.getElementById('umsatzGrid').innerHTML = sorted.map(([k,v]) =>
+    `<div class="umsatz-card"><div class="name">${escHtml(k)}</div><div class="amount">€ ${v.total.toLocaleString('de-DE',{minimumFractionDigits:2})}</div><div class="details">${v.count} Vertrag${v.count>1?'e':''} · ${v.agentin}</div></div>`
+  ).join('');
+}
+
+// ============================================================
+//  TABS
+// ============================================================
+function showTab(tab) {
+  ['liste','umsatz','export'].forEach((t,i) => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t===tab ? '' : 'none';
+    document.querySelectorAll('nav button')[i].classList.toggle('active', t===tab);
+  });
+  if (tab === 'umsatz') renderUmsatz();
+}
+
+// ============================================================
+//  MODAL
+// ============================================================
+function openModal(data) {
+  editingId = data ? data.id : null;
+  document.getElementById('modalTitle').textContent = data ? 'Vertrag bearbeiten' : 'Neuer Vertrag';
+  document.getElementById('contractModal').classList.add('open');
+  const allFields = ['klient','produktion','haus','jahr','agentin','bearbeitung','bedingungen','sonder',
+    'tagesgage','garant_dt','zusatz_dt','pauschale','vorbereitungstage','synchrontage',
+    'reisen','hotel','spesen','nennung','presse','fotoabnahme','kollegin','bescheinigung','abrechnungsinfo','provision_pct_film',
+    'monatsgage','vorstellungsgage','garant_vs','zeitraum','steuerklasse','stuecke','sports','provision_pct_theater',
+    'sonstiges_art','sonstiges_honorar','sonstiges_tage','provision_pct_sonstiges','sonstiges_reisen','sonstiges_besonders',
+    'provision','rechnung','erster_dt','letzter_dt','verhandelt','entwurf_da','aenderungen_raus',
+    'original_da','original_raus','original_zurueck','honorarrechnung','personal'];
+  allFields.forEach(f => {
+    const el = document.getElementById('f_' + f);
+    if (el) el.value = data ? (data[f] != null ? data[f] : '') : (f==='provision_pct_film'?'10':f==='provision_pct_theater'?'6':f==='provision_pct_sonstiges'?'10':'');
+  });
+  setTyp(data ? (data.typ||'Film') : 'Film', true);
+}
+
+function closeModal() { document.getElementById('contractModal').classList.remove('open'); }
+
+function setTyp(typ, silent) {
+  currentTyp = typ;
+  document.getElementById('sectionFilm').style.display = typ==='Film' ? '' : 'none';
+  document.getElementById('sectionTheater').style.display = typ==='Theater' ? '' : 'none';
+  document.getElementById('sectionSonstiges').style.display = typ==='Sonstiges' ? '' : 'none';
+  document.querySelectorAll('.type-tab').forEach((b,i) => {
+    b.classList.remove('active');
+    if (i===0&&typ==='Film'||i===1&&typ==='Theater'||i===2&&typ==='Sonstiges') b.classList.add('active');
+  });
+}
+
+async function saveContract() {
+  const klient = document.getElementById('f_klient').value.trim();
+  const produktion = document.getElementById('f_produktion').value.trim();
+  if (!klient || !produktion) { alert('Bitte Klient und Produktion ausfüllen.'); return; }
+  const getV = id => { const el = document.getElementById('f_' + id); return el ? el.value : ''; };
+  const c = {
+    id: editingId,
+    typ: currentTyp, klient, produktion,
+    haus: getV('haus'), jahr: getV('jahr'), agentin: getV('agentin'), bearbeitung: getV('bearbeitung'),
+    bedingungen: getV('bedingungen'), sonder: getV('sonder'),
+    tagesgage: getV('tagesgage'), garant_dt: getV('garant_dt'), zusatz_dt: getV('zusatz_dt'),
+    pauschale: getV('pauschale'), vorbereitungstage: getV('vorbereitungstage'), synchrontage: getV('synchrontage'),
+    reisen: getV('reisen'), hotel: getV('hotel'), spesen: getV('spesen'),
+    nennung: getV('nennung'), presse: getV('presse'), fotoabnahme: getV('fotoabnahme'),
+    kollegin: getV('kollegin'), bescheinigung: getV('bescheinigung'), abrechnungsinfo: getV('abrechnungsinfo'),
+    provision_pct_film: getV('provision_pct_film'),
+    monatsgage: getV('monatsgage'), vorstellungsgage: getV('vorstellungsgage'), garant_vs: getV('garant_vs'),
+    zeitraum: getV('zeitraum'), steuerklasse: getV('steuerklasse'), stuecke: getV('stuecke'), sports: getV('sports'),
+    provision_pct_theater: getV('provision_pct_theater'),
+    sonstiges_art: getV('sonstiges_art'), sonstiges_honorar: getV('sonstiges_honorar'),
+    sonstiges_tage: getV('sonstiges_tage'), provision_pct_sonstiges: getV('provision_pct_sonstiges'),
+    sonstiges_reisen: getV('sonstiges_reisen'), sonstiges_besonders: getV('sonstiges_besonders'),
+    provision: getV('provision'), rechnung: getV('rechnung'),
+    erster_dt: getV('erster_dt'), letzter_dt: getV('letzter_dt'), verhandelt: getV('verhandelt'),
+    entwurf_da: getV('entwurf_da'), aenderungen_raus: getV('aenderungen_raus'),
+    original_da: getV('original_da'), original_raus: getV('original_raus'),
+    original_zurueck: getV('original_zurueck'), honorarrechnung: getV('honorarrechnung'), personal: getV('personal'),
+  };
+  closeModal();
+  showLoading(editingId ? 'Vertrag wird gespeichert…' : 'Vertrag wird angelegt…');
+  try {
+    if (editingId) {
+      await updateSPItem(c);
+      const idx = contracts.findIndex(x => x.id === editingId);
+      if (idx >= 0) contracts[idx] = c;
+    } else {
+      const newId = await createSPItem(c);
+      c.id = newId;
+      contracts.push(c);
+    }
+    renderList();
+  } catch(e) {
+    alert('Fehler beim Speichern: ' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+function editContract(id) { const c = contracts.find(x => x.id===id); if (c) openModal(c); }
+
+async function deleteContract(id) {
+  const c = contracts.find(x => x.id===id);
+  if (!c || !confirm(`Vertrag "${c.klient} – ${c.produktion}" wirklich löschen?`)) return;
+  showLoading('Vertrag wird gelöscht…');
+  try {
+    await deleteSPItem(id);
+    contracts = contracts.filter(x => x.id !== id);
+    renderList();
+  } catch(e) {
+    alert('Fehler beim Löschen: ' + e.message);
+  } finally {
+    hideLoading();
+  }
+}
+
+// ============================================================
+//  DETAIL VIEW
+// ============================================================
+function showDetail(id) {
+  const c = contracts.find(x => x.id===id);
+  if (!c) return;
+  document.getElementById('detailModalHeader').style.background =
+    c.typ==='Film' ? 'var(--badge-film)' : c.typ==='Theater' ? 'var(--badge-theater)' : 'var(--badge-sonstiges)';
+  const icon = c.typ==='Film' ? '🎬' : c.typ==='Theater' ? '🎭' : '🎙';
+  document.getElementById('detailTitle').textContent = `${icon} ${c.klient} – ${c.produktion}`;
+  document.getElementById('detailEditBtn').onclick = () => { closeDetail(); editContract(id); };
+  const row = (l,v) => v ? `<div class="detail-row"><div class="detail-label">${l}</div><div class="detail-value">${escHtml(String(v))}</div></div>` : '';
+  const wfDots = WORKFLOW_FELDER.map(f =>
+    `<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+      <div class="wf-dot ${wfDone(c[f.key])?'done':''}" style="width:18px;height:18px"></div>
+      <div style="font-size:9px;color:#888;text-align:center">${f.label}</div>
+    </div>`).join('');
+  let html = `<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <span class="type-badge type-${c.typ.toLowerCase()}">${icon} ${c.typ}</span>
+    <span class="agent-badge">${c.agentin}</span>
+    <span style="font-size:12px;color:#888">Jahr: ${c.jahr}</span>
+    ${c.bearbeitung ? `<span style="font-size:12px;color:#888">Bearbeitung: ${c.bearbeitung}</span>` : ''}
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:16px;padding:10px;background:#f8f8f8;border-radius:6px;flex-wrap:wrap">${wfDots}</div>
+  <div class="form-section-title" style="margin-bottom:8px">Basisdaten</div>`;
+  html += row('Produktion', c.produktion) + row('Haus / Firma', c.haus);
+  html += row('Erster DT / Vorst.', c.erster_dt) + row('Letzter DT / Vorst.', c.letzter_dt);
+  if (c.bedingungen) html += `<div style="margin:12px 0"><div class="detail-label" style="margin-bottom:6px">Bedingungen</div><div class="memo-box">${escHtml(c.bedingungen)}</div></div>`;
+  if (c.sonder) html += `<div style="margin:12px 0"><div class="detail-label" style="margin-bottom:6px">Sondervereinbarungen</div><div class="memo-box" style="border-left-color:var(--red)">${escHtml(c.sonder)}</div></div>`;
+  if (c.typ==='Film') {
+    html += `<div class="form-section-title" style="margin:16px 0 8px">Film-Konditionen</div>`;
+    html += row('Tagesgage', c.tagesgage ? '€ '+Number(c.tagesgage).toLocaleString('de-DE') : '');
+    html += row('Garantierte DT', c.garant_dt) + row('Zusatz-DT', c.zusatz_dt);
+    html += row('Reisen', c.reisen) + row('Hotel', c.hotel) + row('Nennung', c.nennung);
+  } else if (c.typ==='Theater') {
+    html += `<div class="form-section-title" style="margin:16px 0 8px">Theater-Konditionen</div>`;
+    html += row('Monatsgage', c.monatsgage ? '€ '+Number(c.monatsgage).toLocaleString('de-DE') : '');
+    html += row('Vorstellungsgage', c.vorstellungsgage ? '€ '+Number(c.vorstellungsgage).toLocaleString('de-DE') : '');
+    html += row('Vertragszeitraum', c.zeitraum);
+  } else {
+    html += `<div class="form-section-title" style="margin:16px 0 8px">Sonstiges-Konditionen</div>`;
+    html += row('Art des Projekts', c.sonstiges_art);
+    html += row('Honorar', c.sonstiges_honorar ? '€ '+Number(c.sonstiges_honorar).toLocaleString('de-DE') : '');
+  }
+  html += `<div class="form-section-title" style="margin:16px 0 8px">Provision</div>`;
+  html += row('Provision', c.provision ? '€ '+Number(c.provision).toLocaleString('de-DE',{minimumFractionDigits:2}) : '');
+  html += row('Rechnung', c.rechnung);
+  html += `<div class="form-section-title" style="margin:16px 0 8px">Workflow</div>`;
+  html += row('Verhandelt', c.verhandelt) + row('Entwurf da', c.entwurf_da) + row('Änderungen raus', c.aenderungen_raus);
+  html += row('Original da', c.original_da) + row('Original raus', c.original_raus) + row('Original zurück', c.original_zurueck);
+  html += row('Honorarrechnung', c.honorarrechnung) + row('Personalstammbogen', c.personal);
+  document.getElementById('detailBody').innerHTML = html;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
+
+// ============================================================
+//  UMSATZ TOGGLE
+// ============================================================
+function toggleUmsatz() {
+  showUmsatz = !showUmsatz;
+  const btn = document.getElementById('umsatzToggle');
+  btn.classList.toggle('active', showUmsatz);
+  btn.textContent = showUmsatz ? '€ Umsatz ausblenden' : '€ Umsatz anzeigen';
+  document.querySelectorAll('.umsatz-col').forEach(el => { el.style.display = showUmsatz ? '' : 'none'; });
+  renderList();
+}
+
+// ============================================================
+//  USER SWITCHER
+// ============================================================
+const USERS = ['ER','HB','JH'];
+const USER_LABELS = { ER:'ER – Esther', HB:'HB – Beate', JH:'JH – Johann' };
+function cycleUser() {
+  currentUser = USERS[(USERS.indexOf(currentUser) + 1) % USERS.length];
+  document.getElementById('currentUser').textContent = USER_LABELS[currentUser];
+  if (currentUser==='JH' && showUmsatz) toggleUmsatz();
+  document.getElementById('umsatzToggle').style.display = currentUser==='JH' ? 'none' : '';
+}
+
+// ============================================================
+//  PROVISION BERECHNEN
+// ============================================================
+function berechneProvision() {
+  let p = 0;
+  if (currentTyp==='Film') {
+    const tg=Number(document.getElementById('f_tagesgage').value)||0;
+    const gdt=Number(document.getElementById('f_garant_dt').value)||0;
+    const zdt=Number(document.getElementById('f_zusatz_dt').value)||0;
+    const pau=Number(document.getElementById('f_pauschale').value)||0;
+    const pct=Number(document.getElementById('f_provision_pct_film').value)||10;
+    p = ((tg*(gdt+zdt))+pau)*(pct/100);
+  } else if (currentTyp==='Theater') {
+    const mg=Number(document.getElementById('f_monatsgage').value)||0;
+    const vg=Number(document.getElementById('f_vorstellungsgage').value)||0;
+    const gvs=Number(document.getElementById('f_garant_vs').value)||0;
+    const pct=Number(document.getElementById('f_provision_pct_theater').value)||6;
+    p = (mg+vg*gvs)*(pct/100);
+  } else {
+    const hon=Number(document.getElementById('f_sonstiges_honorar').value)||0;
+    const tage=Number(document.getElementById('f_sonstiges_tage').value)||1;
+    const pct=Number(document.getElementById('f_provision_pct_sonstiges').value)||10;
+    p = hon*tage*(pct/100);
+  }
+  document.getElementById('f_provision').value = p.toFixed(2);
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function exportCSV(jahr) {
+  const data = jahr ? contracts.filter(c=>c.jahr===jahr) : contracts;
+  const cols = ['typ','klient','produktion','haus','jahr','agentin','bearbeitung','erster_dt','letzter_dt',
+    'verhandelt','entwurf_da','aenderungen_raus','original_da','original_raus','original_zurueck',
+    'honorarrechnung','provision','rechnung','bedingungen','sonder'];
+  const header = ['Typ','Klient','Produktion','Haus','Jahr','Agent','Bearbeitung','1. DT','Letzter DT',
+    'Verhandelt','Entwurf da','Änd. raus','Orig. da','Orig. raus','Orig. zurück',
+    'Honorarr.','Provision (€)','Rechnung','Bedingungen','Sonder'];
+  const rows = [header, ...data.map(c => cols.map(k => JSON.stringify(c[k]||'')))];
+  download(`Vertraege_${jahr||'Alle'}.csv`, 'text/csv;charset=utf-8;', '﻿' + rows.map(r=>r.join(';')).join('\n'));
+}
+
+function exportJSON() {
+  download('Vertraege_Backup.json', 'application/json', JSON.stringify(contracts, null, 2));
+}
+
+function download(filename, mime, content) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = filename; a.click();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ============================================================
+//  LOADING
+// ============================================================
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text || 'Bitte warten…';
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+// ============================================================
+//  START
+// ============================================================
+initMsal();
+</script>
+</body>
+</html>
