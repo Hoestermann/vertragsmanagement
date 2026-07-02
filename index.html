@@ -374,17 +374,23 @@ async function initMsal() {
   if (CLIENT_ID === 'NICHT_GESETZT') {
     document.getElementById('configBanner').style.display = 'block';
     document.getElementById('loginOverlay').style.display = 'none';
-    // Demo-Modus: leere Liste zeigen
     renderList();
     return;
   }
-  msalInstance = new msal.PublicClientApplication(msalConfig);
-  await msalInstance.initialize();
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length > 0) {
-    document.getElementById('loginOverlay').style.display = 'none';
-    await loadFromSP();
-  } else {
+  try {
+    msalInstance = new msal.PublicClientApplication(msalConfig);
+    if (typeof msalInstance.initialize === 'function') {
+      await msalInstance.initialize();
+    }
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      await loadFromSP();
+    } else {
+      document.getElementById('loginOverlay').style.display = 'flex';
+    }
+  } catch(e) {
+    console.error('MSAL init error:', e);
     document.getElementById('loginOverlay').style.display = 'flex';
   }
 }
@@ -392,6 +398,12 @@ async function initMsal() {
 async function doLogin() {
   document.getElementById('loginError').style.display = 'none';
   try {
+    if (!msalInstance) {
+      msalInstance = new msal.PublicClientApplication(msalConfig);
+      if (typeof msalInstance.initialize === 'function') {
+        await msalInstance.initialize();
+      }
+    }
     await msalInstance.loginPopup({ scopes: SP_SCOPE });
     document.getElementById('loginOverlay').style.display = 'none';
     await loadFromSP();
