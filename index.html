@@ -516,11 +516,73 @@ async function spFetch(url, opts = {}) {
   return fetch(url, { ...opts, headers });
 }
 
+async function setupSharePointList() {
+  showLoading('SharePoint-Liste wird eingerichtet…');
+  try {
+    // Liste anlegen
+    const createList = await spFetch(`${SP_SITE}/_api/web/lists`, {
+      method: 'POST',
+      body: JSON.stringify({
+        '__metadata': { 'type': 'SP.List' },
+        'Title': SP_LIST,
+        'BaseTemplate': 100,
+        'Description': 'Vertragsmanagement Hoestermann Agentur'
+      })
+    });
+    if (!createList.ok && createList.status !== 409) {
+      const err = await createList.text();
+      throw new Error('Liste konnte nicht erstellt werden: ' + createList.status);
+    }
+
+    // Spalten anlegen
+    const baseUrl = `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/fields`;
+    const textFields = ['Klient','Produktion','Haus','Typ','Agentin','Bearbeitung','Sonder'];
+    const dateFields = ['Erster_DT','Letzter_DT','Verhandelt','Entwurf_da','Aenderungen_raus',
+                        'Original_da','Original_raus','Original_zurueck','Honorarrechnung','Rechnung'];
+    const numberFields = ['Jahr','Provision'];
+    const noteFields = ['Bedingungen'];
+
+    for (const f of textFields) {
+      await spFetch(baseUrl, { method:'POST', body: JSON.stringify({
+        '__metadata':{'type':'SP.Field'}, 'Title':f, 'FieldTypeKind':2, 'Required':false
+      })});
+    }
+    for (const f of dateFields) {
+      await spFetch(baseUrl, { method:'POST', body: JSON.stringify({
+        '__metadata':{'type':'SP.FieldDateTime'}, 'Title':f, 'FieldTypeKind':4, 'Required':false
+      })});
+    }
+    for (const f of numberFields) {
+      await spFetch(baseUrl, { method:'POST', body: JSON.stringify({
+        '__metadata':{'type':'SP.FieldNumber'}, 'Title':f, 'FieldTypeKind':9, 'Required':false
+      })});
+    }
+    for (const f of noteFields) {
+      await spFetch(baseUrl, { method:'POST', body: JSON.stringify({
+        '__metadata':{'type':'SP.FieldMultiLineText'}, 'Title':f, 'FieldTypeKind':3, 'Required':false
+      })});
+    }
+
+    alert('SharePoint-Liste wurde erfolgreich eingerichtet! Die App lädt jetzt die Daten.');
+    await loadFromSP();
+  } catch(e) {
+    hideLoading();
+    alert('Einrichtung fehlgeschlagen: ' + e.message);
+  }
+}
+
 async function loadFromSP() {
   showLoading('Verträge werden geladen…');
   try {
     const url = `${SP_SITE}/_api/web/lists/getbytitle('${SP_LIST}')/items?$top=500&$orderby=Klient asc`;
     const resp = await spFetch(url);
+    if (resp.status === 404 || resp.status === 500) {
+      hideLoading();
+      if (confirm('Die SharePoint-Liste "' + SP_LIST + '" wurde noch nicht gefunden.\n\nSoll sie jetzt automatisch angelegt werden?')) {
+        await setupSharePointList();
+      }
+      return;
+    }
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
     contracts = data.d.results.map(spToContract);
