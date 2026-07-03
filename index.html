@@ -237,7 +237,7 @@
       <div class="form-section">
         <div class="form-section-title">Basisdaten</div>
         <div class="form-grid">
-          <div class="form-group"><label>Klient *</label><input type="text" id="f_klient" placeholder="Nachname, Vorname"></div>
+          <div class="form-group"><label>Klient *</label><input type="text" id="f_klient" placeholder="Nachname, Vorname" oninput="onKlientInput()"></div>
           <div class="form-group"><label>Produktion *</label><input type="text" id="f_produktion" placeholder="z.B. Tatort Frankfurt"></div>
           <div class="form-group"><label>Produktionsfirma / Haus</label><input type="text" id="f_haus" placeholder="z.B. Sommerhaus Film"></div>
           <div class="form-group"><label>Jahr</label><select id="f_jahr"><option>2026</option><option>2027</option><option>2025</option></select></div>
@@ -248,7 +248,7 @@
       <div class="form-section">
         <div class="form-section-title">Bedingungen & Memos</div>
         <div class="form-grid">
-          <div class="form-group span2"><label>Bedingungen / Memos</label><textarea id="f_bedingungen" placeholder="Verhandlungsstand, besondere Konditionen, Hinweise…"></textarea></div>
+          <div class="form-group span2"><label>Bedingungen / Memos</label><textarea id="f_bedingungen" placeholder="Verhandlungsstand, besondere Konditionen, Hinweise…"></textarea><div id="besonderheiten_hint" style="display:none;font-size:11px;color:var(--green);margin-top:4px;font-weight:600"></div></div>
           <div class="form-group span2"><label>Sondervereinbarungen</label><textarea id="f_sonder" placeholder="Optionen, Achtungshinweise, Klauseln…"></textarea></div>
         </div>
       </div>
@@ -268,8 +268,8 @@
           <div class="form-group"><label>Nennung / Credit</label><input type="text" id="f_nennung" placeholder="z.B. Hauptrolle"></div>
           <div class="form-group"><label>Presse</label><select id="f_presse"><option value="">–</option><option>Nach Absprache</option><option>Ja</option><option>Nein</option></select></div>
           <div class="form-group"><label>Fotoabnahme</label><select id="f_fotoabnahme"><option value="">–</option><option>Ja</option><option>Nein</option></select></div>
-          <div class="form-group"><label>Mit Kollegin</label><input type="text" id="f_kollegin" placeholder="Name"></div>
-          <div class="form-group"><label>Bescheinigung</label><select id="f_bescheinigung"><option value="">–</option><option>Kommt</option><option>Da</option><option>Nicht nötig</option></select></div>
+          <div class="form-group"><label>Aufenthalt</label><select id="f_kollegin"><option value="">–</option><option>Allein</option><option>Mit Kolleg/in</option></select></div>
+          
           <div class="form-group"><label>Abrechnungsinfo</label><input type="text" id="f_abrechnungsinfo"></div>
           <div class="form-group"><label>Provision % (Film)</label><input type="number" id="f_provision_pct_film" value="10" style="width:80px"></div>
         </div>
@@ -314,8 +314,8 @@
         <div class="form-section-title">Workflow – Vertragsstatus</div>
         <div style="font-size:12px;color:#888;margin-bottom:10px">✓ = erledigt / Datum eintragen wenn bekannt</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="form-group"><label>Erster Drehtag / Vorstellung</label><input type="text" id="f_erster_dt" placeholder="z.B. 15.03.26"></div>
-          <div class="form-group"><label>Letzter Drehtag / Vorstellung</label><input type="text" id="f_letzter_dt" placeholder="z.B. 15.07.26"></div>
+          <div class="form-group"><label>Erster Drehtag</label><input type="text" id="f_erster_dt" placeholder="z.B. 15.03.26"></div>
+          <div class="form-group"><label>Letzter Drehtag</label><input type="text" id="f_letzter_dt" placeholder="z.B. 15.07.26"></div>
           <div class="form-group"><label>Verhandelt</label><input type="text" id="f_verhandelt" placeholder="Datum oder X"></div>
           <div class="form-group"><label>Entwurf erhalten</label><input type="text" id="f_entwurf_da" placeholder="Datum oder X"></div>
           <div class="form-group"><label>Änderungen raus</label><input type="text" id="f_aenderungen_raus" placeholder="Datum oder X"></div>
@@ -323,7 +323,10 @@
           <div class="form-group"><label>Original raus</label><input type="text" id="f_original_raus" placeholder="Datum od. Digital"></div>
           <div class="form-group"><label>Original zurück</label><input type="text" id="f_original_zurueck" placeholder="Datum oder X"></div>
           <div class="form-group"><label>Honorarrechnung</label><input type="text" id="f_honorarrechnung" placeholder="– oder Datum"></div>
-          <div class="form-group"><label>Personalstammbogen</label><input type="text" id="f_personal" placeholder="Datum weitergeleitet"></div>
+          <div class="form-group"><label>Personalstammblatt → Klient</label><input type="text" id="f_personal_klient" placeholder="Datum verschickt"></div>
+          <div class="form-group"><label>Personalstammblatt → Produktion</label><input type="text" id="f_personal_prod" placeholder="Datum verschickt"></div>
+          <div class="form-group"><label>GVL ARD → Klient</label><input type="text" id="f_gvl_klient" placeholder="Datum verschickt"></div>
+          <div class="form-group"><label>GVL ARD → Produktion</label><input type="text" id="f_gvl_prod" placeholder="Datum verschickt"></div>
         </div>
       </div>
     </div>
@@ -350,6 +353,79 @@
 </div>
 
 <script>
+const KLIENTEN_BESONDERHEITEN = {
+  "Achour, Mohamed": `Katzenhaarallergie (nicht schwer). Bei Reisen: immer Flexticket. Bahncard 25 / 2.Klasse Nr.: 7081 4101 4918 5215. Hat 2-Stücke-Vertrag mit Schauspiel Hannover – die haben Priorität.`,
+  "Aljinovic, Boris": `Schreibweise beachten: Boris Aljinović. BahnCard 25 (2. Klasse) Nr.: 7081 4112 6767 4808 (gültig bis 05.07.2026 – Abo, verlängert sich automatisch).`,
+  "Ayano, Ann": `Bürgerlicher Name: Ayano Teramoto. 1 Kind (Jahrgang 2014). Glutenunverträglichkeit, Katzenallergie, Hausstauballergie. Fest am Schauspiel Hannover. Pendelt zwischen Hannover und Berlin.`,
+  "Beckmann, Maja": `Keine Besonderheiten.`,
+  "Beykirch, Mareike": `Zweiwohnsitze steuerlich: München und Berlin. Allergien: Aloe Vera, Gurke, Birke, Gräser (Pflegeprodukte). Bahncard 100. Fest am Deutschen Theater.`,
+  "Busch, Inga": `Keine Besonderheiten.`,
+  "Cathomas, Bruno": `Fest an der Burg Wien, daher dort gemeldet.`,
+  "Clauss, Christian": `BahnCard 2. Klasse 25 & Deutschlandticket.`,
+  "Clau\u00df, Christian": `BahnCard 2. Klasse 25 & Deutschlandticket.`,
+  "Eichel, Julischka": `Fest am Deutschen Theater Berlin. MUSS in den Vertrag: Die Vertragspartnerin weist folgende Allergien und Unverträglichkeiten auf: Histaminintoleranz, Laktoseintoleranz, Knoblauchallergie sowie Hausstauballergie. Der/die Produzent*in verpflichtet sich, diese Informationen unverzüglich und vollständig an alle relevanten Departments weiterzugeben.`,
+  "Engel, Judith": `Keine Unverträglichkeiten. Vegetarierin. Judith muss Vertragszeiten rechtzeitig wissen wegen Arbeitsamt. Fliegt ungerne – wenn dann nur Direktflüge. Wenn Dreh nicht in Berlin: immer besprechen wegen Mutter/Sohn. BahnCard 25%, 2. Klasse Nr.: 7081 4110 8091 5271.`,
+  "Grashof, Christian": `Rentner. Ruhezeiten (wg. Alter) beachten. Warmer Aufenthaltsraum – immer, egal wo. Reisen mit Begleitung.`,
+  "Hartwig, Franz": `Pferdehaar-Allergie & Heuschnupfen. Nennung: Vorspann. BahnCard 2. Klasse 50% Nr.: 7081 4112 2264 7972 gültig bis 01.09.26.`,
+  "Hennicke, Andr\u00e9": `Wir haben Inkasso. Ist Rentner. Gage IMMER auf das Inkassokonto. Abrechnung immer spätestens am Monatsende! Keine USt. auf Honorarrechnungen.`,
+  "Hmeidan, Kenda": `Hat die deutsche Staatsbürgerschaft. SOFORT Vertragszeiten durchgeben für AA. Hat keinen Führerschein (prüfen, ob in Vertrag muss).`,
+  "J\u00e4ger, Julia": `Mobilnummer NICHT rausgeben. Pensionskasse Mitgl.-Nr.: 11038 (069-155-3126), Beitragssatz 4% AG + 4% AN – Julia entscheidet selbst. Essen am Set immer vorher klären. Keine Geburtsurkunden. Nur Beschäftigungsinsel. Kein Covid-Passus. Vor Unterschrift alle Seiten parafiert. Nur Papier-Abrechnung. PR-Absatz streichen. Max. 10,75h am Set / 13h Ruhepause exkl. Fahrt. Bahn 1. Klasse. 2026 NICHT MwSt.-pflichtig!!!`,
+  "Keller, Amal": `Bürgerlicher Name: Amal-Leyla Keller. Meldeadresse ≠ Wohnadresse (beides Berlin). Nacktpassus vorher besprechen. Duftstoffallergie (Make-Up!), Histaminintolerant (aktuell erfragen), vegetarisch, Nesselsucht. BahnCard 2. Klasse 50% (7081 4112 5165 4626). Ab August 2026 fest am Berliner Ensemble.`,
+  "Klare, Felix": `SWR/Tatort: Auto für Reisen in Vertrag (Flexibilität, kein Luxus nötig). Bahn 1. Klasse (Bahnhof ab Riederau, kein BC mehr). Veggie, Hafermilch. Sperrtage: Vortag ab 12h + Tag danach bis 12h zusätzlich sperren. Fliegt ungern (Flugangst).`,
+  "Knirsch, Maike": `Hat ein kleines Kind. Fest am Thalia Theater Hamburg.`,
+  "Krassnitzer, Harald": `Österreicher – steuerlich prüfen (Inländer DE & AT). Rentner in Österreich. Hotel München: Olympic, generell Boutique-Hotels. Flug Inland: Eco, Übersee: Business Lufthansa, M&M: 9922 2368 4347 345 (bis 2/27), Lounge & Fast Lane. Zug: Fensterplatz. Auto: DA X 3147.`,
+  "Kroymann, Maren": `Rentnerin. Bahn 1. Klasse. Keine Abholung vor 7 Uhr. Arbeitszeitenregelung beachten, keine Close-Ups im letzten Bild (Auge). Cateringwunschliste im Ordner. Maskenbildnerin: Dunja Pflugfelder (0172-6306502) oder Arielle Tross (0172-8759939). Fotoabnahme & Presse nach Absprache. Hotel/Apartment vorher absprechen. BahnCard 1. Klasse 50% (7081 4101 1940 3242).`,
+  "Liebrecht, Torben": `Eigener Personalstammbogen (Server). 11h Ruhezeit exkl. An-/Abreise, max. 12h Arbeitszeit. Gastnennung bei kleinen Rollen: mit ihm besprechen. Bei Maske & Kostüm: 100% Fotofreigabe. Einzel-Trailer. Showreel-Download-Link. Eigensynchron bei intl. Produktionen sichern. KI-Klausel (Stimme) ausschließen! Bahn 1. Klasse. Private Daten nicht öffentlich. BahnCard 50 / 1. Klasse: 7081 4111 7201 1864 bis 23.04.2027.`,
+  "Manzel, Dagmar": `GENERELL NIE Werbung! Maskenbildnerin: Nicole Förster (0162-1786131). Eigener Fahrer: Markus Geldhahn. Catering: vegetarisch. Kein Zug – Auto oder Flug (nur wenn einfach). Will immer von zu Hause abgeholt werden. Rentnerin. Nur Business oder Economy Plus. Immer ruhiges Zimmer, möglichst ganz oben.`,
+  "Maticevic, Misel": `Schreibweise MUSS stimmen: Mišel Matičević – im Vertrag verankern (Verstoß = rechtliche Schritte). Bahn: Großraum, Fenster. Bart/Haare nur nach Absprache. GVL-Mitglied. Taxikosten erstatten. Trailer allein. Catering: kein Mittagessen – nicht abziehen! Fast Lane beim Flug.`,
+  "Matthes, Ulrich": `Frühstück im Hotel wenn später Dreh. Einzelzimmer bevorzugt. Einzelsitz im Zug. Leicht nachtblind. Großes Bett, ruhig. Flexitarier, frisch & gesund. Auto: Automatik! Höhenangst. Rentner seit 09.08. Fest am Deutschen Theater.`,
+  "Merai, Amina": `Deutsche & tunesische Staatsbürgerschaft. Kein Schweinefleisch. Trägt Brille. Rauchen/Vapen beim Dreh ok (leicht). Kein Führerschein – im Vertrag: 'Zum Zeitpunkt des Vertragsschlusses verfügt der Vertragspartner über keine gültige Fahrerlaubnis.' Ruhebereich Zug.`,
+  "M\u00fcller, Mercedes": `Geänderter Name: Mercedes Mariola Nicole Müller.`,
+  "Navid, Navid": `Bürgerlicher Name: Navid Akhavan. Navid Navid ist Künstlername (eingetragen). Gemeldet Berlin, wohnt in den Niederlanden. Reisen: eigenes Auto > Zug > Flug.`,
+  "Oertel, Tobias": `Immer Vorspann – Abspann streichen. Flextickets. Bahn 1. Klasse. Haare nicht extern (schwierige Haare, immer besprechen). Stuntproben & Fitnesstraining vorher klären.`,
+  "Pl\u00fcss, Elisa": `Fest an der Burg Wien.`,
+  "Rashidi, Narges": `Bürgerlicher Name: Narges Straka. Rechnungen über US-Firma: If I Only Knew, Inc., 2218 Main Street 302, Santa Monica, CA 90405 USA. Eigensynchron (DE↔EN). Seit 07.07.23 US-Bürgerin (doppelt). In DE als Ausländerin versteuert – 20% auf alles inkl. geldwerter Vorteil. Hotel auf anderen Namen buchen. Vegan, glutenfrei. Trailer allein. Keine Folgeoption! KI-Synchron nur gegen Bezahlung. Niemals Ryanair. Höhenangst. Niemand darf größeren Trailer haben.`,
+  "Redetzki, Vincent": `Kein Führerschein. Im Vertrag: 'Zum Zeitpunkt des Vertragsschlusses verfügt der Vertragspartner über keine gültige Fahrerlaubnis.'`,
+  "Sass, Katrin": `Talkshows: direkt zum Studio (nicht zu früh einplanen). Arbeitszeitenregelung 'Usedom-Krimi'. Keine USt. auf Honorarrechnungen. Rentnerin seit 2023, kein Rentenbeitrag mehr. Stammblatt füllen wir immer aus.`,
+  "Schmidt-Schaller, Petra": `Haare zurückfärben in den Vertrag. Vorbereitungstage MÜSSEN berechnet werden. Vor Zusage immer mit ihr besprechen. BahnCard 50% 2. Klasse Nr.: 7081 4111 0841 9019 43. Fährt 1. Klasse.`,
+  "Schwarz, Jessica": `Keine Unverträglichkeiten außer Milch (Hafermilch). Lebt in Portugal – Reisen von/nach dort. Allein-Aufenthalt. Synchron limitieren & Dubbing bezahlen. PR-Tage je nach Gage begrenzen.`,
+  "Selge, Edgar": `Bahn: 1. Klasse, Einzelplatz, Ruhebereich. Flug: Business Class. Set: Einzel-Trailer, Toilette, beheizbar, Liegefläche. Einzelabholung. Max. 12h Set / 11h Ruhezeit exkl. Fahrt. 5-Sterne-Hotel. Zahlung: 50% bei Unterschrift, 50% bei Drehende. Will Vertrag vor Unterzeichnung sehen.`,
+  "Sowah, Steven Adjei": `Name jetzt: Steven Adjei Sowah – so in Verträge & Nennung! DT Priorität bis 31.01.2027 (Gast). Nach dt. Krankenversicherung fragen (hat keine). Stand Juni 2026: nicht mehr in DE gemeldet. BahnCard 50, 2. Kl. (7081 4112 0237 6204).`,
+  "Szymanski, Andr\u00e9": `Fest am Thalia Theater Hamburg.`,
+};
+
+
+function lookupBesonderheiten(klientName) {
+  if (!klientName || klientName.length < 3) return null;
+  const name = klientName.trim();
+  // Exact match
+  if (KLIENTEN_BESONDERHEITEN[name]) return KLIENTEN_BESONDERHEITEN[name];
+  // Case-insensitive match
+  const lower = name.toLowerCase();
+  for (const [key, val] of Object.entries(KLIENTEN_BESONDERHEITEN)) {
+    if (key.toLowerCase() === lower) return val;
+  }
+  // Partial: check if any key starts with the typed name or vice versa
+  for (const [key, val] of Object.entries(KLIENTEN_BESONDERHEITEN)) {
+    const kl = key.toLowerCase();
+    if (kl.startsWith(lower) || lower.startsWith(kl.split(',')[0].toLowerCase())) return val;
+  }
+  return null;
+}
+
+function onKlientInput() {
+  const klient = document.getElementById('f_klient').value;
+  const beding = document.getElementById('f_bedingungen');
+  const hint = document.getElementById('besonderheiten_hint');
+  const found = lookupBesonderheiten(klient);
+  if (found && !beding.value) {
+    beding.value = found;
+    if (hint) { hint.textContent = '✓ Vertragsbesonderheiten automatisch eingetragen'; hint.style.display = 'block'; }
+  } else if (!found && hint) {
+    hint.style.display = 'none';
+  }
+}
+
 // ============================================================
 //  KONFIGURATION – nach Azure-Registrierung ausfüllen
 // ============================================================
@@ -698,7 +774,7 @@ function openModal(data) {
     'monatsgage','vorstellungsgage','garant_vs','zeitraum','steuerklasse','stuecke','sports','provision_pct_theater',
     'sonstiges_art','sonstiges_honorar','sonstiges_tage','provision_pct_sonstiges','sonstiges_reisen','sonstiges_besonders',
     'provision','rechnung','erster_dt','letzter_dt','verhandelt','entwurf_da','aenderungen_raus',
-    'original_da','original_raus','original_zurueck','honorarrechnung','personal'];
+    'original_da','original_raus','original_zurueck','honorarrechnung','personal_klient','personal_prod','gvl_klient','gvl_prod'];
   allFields.forEach(f => {
     const el = document.getElementById('f_' + f);
     if (el) el.value = data ? (data[f] != null ? data[f] : '') : (f==='provision_pct_film'?'10':f==='provision_pct_theater'?'6':f==='provision_pct_sonstiges'?'10':'');
@@ -745,7 +821,7 @@ async function saveContract() {
     erster_dt: getV('erster_dt'), letzter_dt: getV('letzter_dt'), verhandelt: getV('verhandelt'),
     entwurf_da: getV('entwurf_da'), aenderungen_raus: getV('aenderungen_raus'),
     original_da: getV('original_da'), original_raus: getV('original_raus'),
-    original_zurueck: getV('original_zurueck'), honorarrechnung: getV('honorarrechnung'), personal: getV('personal'),
+    original_zurueck: getV('original_zurueck'), honorarrechnung: getV('honorarrechnung'), personal_klient: getV('personal_klient'), personal_prod: getV('personal_prod'), gvl_klient: getV('gvl_klient'), gvl_prod: getV('gvl_prod'),
   };
   closeModal();
   showLoading(editingId ? 'Vertrag wird gespeichert…' : 'Vertrag wird angelegt…');
